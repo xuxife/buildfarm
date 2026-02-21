@@ -1,4 +1,4 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("//:jvm_flags.bzl", "server_jvm_flags", "worker_jvm_flags")
@@ -211,4 +211,17 @@ multiarch_oci_image(
 multiarch_oci_image(
     name = "buildfarm-worker",
     image = ":_buildfarm-worker.image",
+)
+
+oci_push(
+  name = "push-server-image",
+  image = "buildfarm-server",
+  repository = "aksdevinfraprodmsftprod.azurecr.io/bazelbuild/buildfarm-server",
+  remote_tags = ["2.16.0.20260221.1"],
+)
+oci_push(
+  name = "push-worker-image",
+  image = "buildfarm-worker",
+  repository = "aksdevinfraprodmsftprod.azurecr.io/bazelbuild/buildfarm-worker",
+  remote_tags = ["2.16.0.20260221.1"],
 )

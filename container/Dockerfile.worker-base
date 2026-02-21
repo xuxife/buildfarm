@@ -1,0 +1,7 @@
+FROM bazelbuild/buildfarm-worker-base:noble
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
