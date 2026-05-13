@@ -57,7 +57,7 @@ maven.install(
         "com.amazonaws:aws-java-sdk-core",  # Version is specified via the BOM below
         "com.amazonaws:aws-java-sdk-s3",
         "com.amazonaws:aws-java-sdk-secretsmanager",
-        "com.fasterxml.jackson.core:jackson-databind:2.18.3",
+        "com.fasterxml.jackson.core:jackson-databind:2.18.6",
         "com.github.ben-manes.caffeine:caffeine:3.2.0",
         "com.github.docker-java:docker-java",
         "com.github.docker-java:docker-java-api",
@@ -118,12 +118,13 @@ maven.install(
         "net.javacrumbs.future-converter:future-converter-java8-guava:1.2.0",
         "net.jcip:jcip-annotations:1.0",
         "org.apache.commons:commons-compress:1.27.1",
-        "org.apache.commons:commons-lang3:3.17.0",
+        "org.apache.commons:commons-lang3:3.18.0",
         "org.apache.commons:commons-pool2:2.12.1",
         "org.apache.httpcomponents:httpclient:4.5.14",
         "org.apache.tomcat:annotations-api:6.0.53",
         "org.bouncycastle:bcprov-jdk15on:1.70",
         "org.checkerframework:checker-qual:3.49.1",
+        "org.glassfish.jersey.core:jersey-common:2.34",
         "org.jetbrains:annotations:26.0.2",
         "org.mockito:mockito-core:5.16.1",
         "org.openjdk.jmh:jmh-core:1.37",
@@ -142,7 +143,7 @@ maven.install(
         "com.github.docker-java:docker-java-bom:3.3.3",
         "com.google.auth:google-auth-library-bom:1.23.0",
         "io.grpc:grpc-bom:1.62.2",
-        "io.netty:netty-bom:4.1.108.Final",
+        "io.netty:netty-bom:4.1.133.Final",
     ],
     fail_if_repin_required = True,  # TO RE-PIN: REPIN=1 bazel run @unpinned_maven//:pin
     generate_compat_repositories = True,
@@ -181,7 +182,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # Server base image
 oci.pull(
     name = "amazon_corretto_java_image_base",
-    digest = "sha256:efbf26f3d4105684429a74842d742683a99215c6ec304c6ff0faa9e493bb4329",
+    digest = "sha256:f80f95484a41106ceca606536fd775adc3ef55c53b20e408e4dc8813b8a2e8e2",
     image = "public.ecr.aws/amazoncorretto/amazoncorretto",
     platforms = [
         "linux/amd64",
@@ -193,8 +194,8 @@ oci.pull(
 # Worker base image
 oci.pull(
     name = "ubuntu_noble",  # aka 24
-    digest = "sha256:f18e19d1329c0df38dd5f6bfd931c7764fa1e3acf6b3280da62015a338805ce8",
-    image = "index.docker.io/bazelbuild/buildfarm-worker-base",
+    digest = "sha256:e07e987597d9e46383d404c131a39a1df685eea892080634b173a88c7a87ea93",
+    image = "aksdevinfraprodmsftprod.azurecr.io/bazelbuild/buildfarm-worker-base:noble-20260513.1",
     platforms = [
         "linux/amd64",
         "linux/arm64",
