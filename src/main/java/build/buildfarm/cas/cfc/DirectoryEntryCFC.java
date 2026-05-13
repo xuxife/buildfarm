@@ -217,6 +217,10 @@ public class DirectoryEntryCFC extends CASFileCache {
             limited,
             Throwable.class,
             e -> {
+              // Invalidate the stale future from the fetchers cache so that subsequent
+              // attempts to fetch the same directory are not immediately rejected with a
+              // CancellationException / failure from the dead future.
+              fetchers.invalidate(digest);
               try {
                 Directories.remove(path, fileStore);
               } catch (IOException removeException) {

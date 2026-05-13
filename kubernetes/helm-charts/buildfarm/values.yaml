@@ -27,6 +27,13 @@ config:
     recordBesEvents: true
   worker:
     port: 8982
+    # inputFetchDeadline controls how long (in seconds) a worker is allowed to spend
+    # fetching inputs before the InputFetch stage is aborted. The default of 60s is
+    # too short for large inputs such as the GoStdLib action (~702MB with LLVM toolchain).
+    # Increase to 600s (10 minutes) to give the first download attempt enough time to
+    # complete and populate the ActionCache, after which all subsequent builds get a
+    # cache hit and never need to fetch again.
+    inputFetchDeadline: 600
 
 server:
   image:
