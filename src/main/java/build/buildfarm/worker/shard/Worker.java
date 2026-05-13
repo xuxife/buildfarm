@@ -586,6 +586,17 @@ public final class Worker extends LoggingMain {
         if (status.getCode() != Code.UNAVAILABLE && status.getCode() != Code.DEADLINE_EXCEEDED) {
           throw status.asRuntimeException();
         }
+        // Transient error (UNAVAILABLE / DEADLINE_EXCEEDED): wait before retrying so that
+        // this loop does not busy-spin and starve the calling thread (Worker.failsafeRegistration).
+        // Without this sleep, Fix 2 (NOREPLICAS → IOException(UNAVAILABLE)) causes an infinite
+        // tight loop that permanently blocks the registration thread, preventing Fix 1's outer
+        // catch(Exception) from ever running and making the worker invisible to BackplaneStatus.
+        try {
+          SECONDS.sleep(1);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          return;
+        }
       }
     }
     throw Status.UNAVAILABLE.withDescription("backplane was stopped").asRuntimeException();
@@ -641,7 +652,11 @@ public final class Worker extends LoggingMain {
               public void run() {
                 try {
                   while (server != null && !server.isShutdown()) {
-                    registerIfExpired();
+                    try {
+                      registerIfExpired();
+                    } catch (Exception e) {
+                      log.log(Level.WARNING, "worker registration failed, will retry", e);
+                    }
                     SECONDS.sleep(1);
                   }
                 } catch (InterruptedException e) {

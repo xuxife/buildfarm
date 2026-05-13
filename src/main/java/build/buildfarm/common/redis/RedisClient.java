@@ -117,6 +117,9 @@ public class RedisClient implements Closeable {
         if (e.getMessage().startsWith(MISCONF_RESPONSE)) {
           throw new JedisMisconfigurationException(e.getMessage());
         }
+        if (e.getMessage().startsWith("NOREPLICAS")) {
+          throw new IOException(Status.UNAVAILABLE.withCause(e).asException());
+        }
         throw e;
       }
     } catch (JedisMisconfigurationException | JedisClusterOperationException e) {
