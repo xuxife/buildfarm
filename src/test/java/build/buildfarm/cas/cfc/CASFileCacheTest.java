@@ -352,6 +352,42 @@ class CASFileCacheTest {
   }
 
   @Test
+  public void fetchDirectoryCreatesMissingParentBuckets()
+      throws IOException, InterruptedException {
+    // The CAS harness uses hexBucketLevels=1, so the directory path is
+    // root/<hexbucket>/<digest>_dir and has a real bucket parent that can be missing.
+    Directory emptyDirectory = Directory.getDefaultInstance();
+    Digest emptyDirectoryDigest = DIGEST_UTIL.compute(emptyDirectory);
+    Map<build.bazel.remote.execution.v2.Digest, Directory> directoriesIndex =
+        ImmutableMap.of(DigestUtil.toDigest(emptyDirectoryDigest), emptyDirectory);
+
+    // Remove the entire on-disk cache tree so the bucket parent of the directory
+    // path does not exist when fetchDirectory runs; recreate ONLY root.
+    if (Files.exists(root)) {
+      try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
+        walk.sorted(java.util.Comparator.reverseOrder())
+            .forEach(
+                p -> {
+                  try {
+                    Files.deleteIfExists(p);
+                  } catch (IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                  }
+                });
+      }
+    }
+    Files.createDirectories(root);
+
+    // Before the fix Files.createDirectory throws NoSuchFileException on the
+    // missing bucket parent; after the fix createDirectories makes it.
+    Path dirPath =
+        getInterruptiblyOrIOException(
+                fileCache.putDirectory(emptyDirectoryDigest, directoriesIndex, putService))
+            .path();
+    assertThat(Files.isDirectory(dirPath)).isTrue();
+  }
+
+  @Test
   public void startEmptyCas() throws IOException, InterruptedException {
     // start the file cache with no files.
     // the cache should start without any initial files in the cache.

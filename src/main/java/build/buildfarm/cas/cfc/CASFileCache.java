@@ -1893,7 +1893,7 @@ public abstract class CASFileCache implements ContentAddressableStorage {
       Directory directory = pathDirectoryPair.getValue();
 
       removeFilePath(path);
-      Files.createDirectory(path);
+      Files.createDirectories(path);
       putDirectoryFiles(
           digest.getDigestFunction(),
           directory.getFilesList(),
