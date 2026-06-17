@@ -316,6 +316,42 @@ class CASFileCacheTest {
   }
 
   @Test
+  public void expireMissingOnDiskEntryUnlinksFromLruAndDoesNotThrow()
+      throws ExecutionException, IOException, InterruptedException {
+    // Put a blob that nearly fills the 1024-byte cache, then drop our reference
+    // so the entry becomes unreferenced and linked into the LRU (eligible for
+    // eviction); mirrors expireUnreferencedEntryRemovesBlobFile.
+    byte[] bigData = new byte[1000];
+    Arrays.fill(bigData, (byte) 1);
+    ByteString bigContent = ByteString.copyFrom(bigData);
+    Digest bigDigest = DIGEST_UTIL.compute(bigContent);
+    blobs.put(bigDigest, bigContent);
+    Path bigPath = fileCache.put(bigDigest, /* isExecutable= */ false);
+    decrementReference(bigPath);
+
+    String bigKey = CASFileCache.getKey(bigDigest, /* isExecutable= */ false);
+    Entry bigEntry = storage.get(bigKey);
+    assertThat(bigEntry).isNotNull();
+    assertThat(bigEntry.isLinked()).isTrue();
+
+    // Simulate the external wipe: delete the on-disk file while the Entry is
+    // still in storage and still linked in the LRU.
+    Files.delete(fileCache.getPath(bigKey));
+
+    // Force eviction of bigEntry by writing a second blob that needs space.
+    // Before the fix this throws NoSuchFileException (Files.createLink in
+    // safeStorageRemoval); after the fix it self-heals.
+    ByteString moreContent = ByteString.copyFromUtf8("second blob forcing eviction");
+    Digest moreDigest = DIGEST_UTIL.compute(moreContent);
+    blobs.put(moreDigest, moreContent);
+    fileCache.put(moreDigest, /* isExecutable= */ false);
+
+    // The wiped entry must be gone from BOTH the Map and the LRU list.
+    assertThat(storage.containsKey(bigKey)).isFalse();
+    assertThat(bigEntry.isLinked()).isFalse();
+  }
+
+  @Test
   public void startEmptyCas() throws IOException, InterruptedException {
     // start the file cache with no files.
     // the cache should start without any initial files in the cache.

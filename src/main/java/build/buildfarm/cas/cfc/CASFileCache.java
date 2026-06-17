@@ -1710,12 +1710,29 @@ public abstract class CASFileCache implements ContentAddressableStorage {
     lock.lock();
     // why are we splitting IO between this and dischargeEntryFuture?
     try {
-      if (key.endsWith("_dir")) {
-        Files.move(path, expiredPath, ATOMIC_MOVE, REPLACE_EXISTING);
-      } else {
-        Files.createLink(expiredPath, path);
-        deleteExpiredPath = true;
-        Files.delete(path);
+      try {
+        if (key.endsWith("_dir")) {
+          Files.move(path, expiredPath, ATOMIC_MOVE, REPLACE_EXISTING);
+        } else {
+          Files.createLink(expiredPath, path);
+          deleteExpiredPath = true;
+          Files.delete(path);
+          deleteExpiredPath = false;
+        }
+      } catch (NoSuchFileException missingSource) {
+        // The on-disk source is already gone (external cache-loss). This is the
+        // desired end state for eviction, so do NOT propagate and do NOT unlink
+        // here: fall through so the finally drops the entry from storage and the
+        // caller (expireEntry -> dischargeEntryFuture -> unlinkAndExpireDirectories)
+        // performs the single LRU unlink. Propagating would leave a phantom entry
+        // (removed from storage but still linked in the LRU) that the eviction
+        // loop revisits forever, turning every CAS write into NSE -> gRPC UNKNOWN
+        // -> Bazel exit 34. Applies to both the file (createLink) and the _dir
+        // (move) branch.
+        log.log(
+            Level.WARNING,
+            format("safeStorageRemoval: source already missing for %s, treating as removed", key),
+            missingSource);
         deleteExpiredPath = false;
       }
     } finally {
