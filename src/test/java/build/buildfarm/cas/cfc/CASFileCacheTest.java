@@ -388,6 +388,39 @@ class CASFileCacheTest {
   }
 
   @Test
+  public void putRecreatesMissingCacheParentForWrite()
+      throws ExecutionException, IOException, InterruptedException {
+    // Simulate the production runtime cache wipe: the entire on-disk cache root
+    // (the parent of every CAS write temp file <digest>.<uuid>) is deleted while
+    // the worker keeps running. A subsequent write must not fail with
+    // NoSuchFileException at Files.newOutputStream; the worker must recreate the
+    // missing parent and self-heal.
+    ByteString content = ByteString.copyFromUtf8("write after cache root wipe");
+    Digest digest = DIGEST_UTIL.compute(content);
+    blobs.put(digest, content);
+
+    if (Files.exists(root)) {
+      try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
+        walk.sorted(java.util.Comparator.reverseOrder())
+            .forEach(
+                p -> {
+                  try {
+                    Files.deleteIfExists(p);
+                  } catch (IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                  }
+                });
+      }
+    }
+    assertThat(Files.exists(root)).isFalse();
+
+    // Before the fix this throws NoSuchFileException (parent of the write temp
+    // file is gone); after the fix the write recreates the parent and succeeds.
+    Path path = fileCache.put(digest, /* isExecutable= */ false);
+    assertThat(Files.exists(path)).isTrue();
+  }
+
+  @Test
   public void startEmptyCas() throws IOException, InterruptedException {
     // start the file cache with no files.
     // the cache should start without any initial files in the cache.

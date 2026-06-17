@@ -2348,6 +2348,12 @@ public abstract class CASFileCache implements ContentAddressableStorage {
     DigestUtil digestUtil = new DigestUtil(HashFunction.get(digestFunction));
     String writeKey = key + "." + writeId;
     Path writePath = getPath(key).resolveSibling(writeKey);
+    // The on-disk cache root (the parent of the write temp file) can disappear at
+    // runtime (external cache-loss) while the worker keeps running. Without this,
+    // Files.newOutputStream below throws NoSuchFileException on every write,
+    // surfacing to gRPC as UNKNOWN and to Bazel as exit 34. Recreate the parent so
+    // writes self-heal instead of permanently failing until a pod restart.
+    Files.createDirectories(writePath.getParent());
     final long committedSize;
     HashingOutputStream hashOut;
     if (!isReset && Files.exists(writePath)) {
