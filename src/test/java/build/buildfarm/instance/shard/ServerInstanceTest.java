@@ -1341,4 +1341,53 @@ public class ServerInstanceTest {
         instance.indexCorrelatedInvocations(new java.net.URI("https://" + uuid));
     assertThat(correlatedInvocationsId).isEqualTo("https://" + uuid);
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void getBlobNotFoundOnWorkerRemovesStaleBlobLocation() throws Exception {
+    String workerName = "worker";
+    when(mockInstanceLoader.load(eq(workerName))).thenReturn(mockWorkerInstance);
+    ImmutableSet<String> workers = ImmutableSet.of(workerName);
+    when(mockBackplane.getStorageWorkers()).thenReturn(workers);
+
+    ByteString content = ByteString.copyFromUtf8("missing-on-worker");
+    build.buildfarm.v1test.Digest blobDigest = DIGEST_UTIL.compute(content);
+    when(mockBackplane.getBlobLocationSet(eq(blobDigest))).thenReturn(workers);
+
+    // The worker reports the blob is NOT_FOUND when read...
+    doAnswer(
+            (Answer<Void>)
+                invocation -> {
+                  ServerCallStreamObserver<ByteString> blobObserver =
+                      (ServerCallStreamObserver<ByteString>) invocation.getArguments()[4];
+                  blobObserver.onError(Status.NOT_FOUND.asException());
+                  return null;
+                })
+        .when(mockWorkerInstance)
+        .getBlob(
+            any(Compressor.Value.class),
+            eq(blobDigest),
+            any(Long.class),
+            any(Long.class),
+            any(ServerCallStreamObserver.class),
+            any(RequestMetadata.class));
+    // ...and the correctMissingBlob recheck also finds it missing.
+    when(mockWorkerInstance.findMissingBlobs(
+            any(Iterable.class),
+            eq(blobDigest.getDigestFunction()),
+            any(RequestMetadata.class)))
+        .thenReturn(immediateFuture(ImmutableList.of(DigestUtil.toDigest(blobDigest))));
+
+    ServerCallStreamObserver<ByteString> blobObserver = mock(ServerCallStreamObserver.class);
+    instance.getBlob(
+        Compressor.Value.IDENTITY,
+        blobDigest,
+        /* offset= */ 0,
+        /* count= */ blobDigest.getSize(),
+        blobObserver,
+        RequestMetadata.getDefaultInstance());
+
+    // The stale (cas:<digest>, worker) mapping must be evicted from the backplane.
+    verify(mockBackplane, times(1)).removeBlobLocation(eq(blobDigest), eq(workerName));
+  }
 }

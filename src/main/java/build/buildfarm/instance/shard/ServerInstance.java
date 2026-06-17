@@ -1116,7 +1116,23 @@ public class ServerInstance extends NodeInstance {
                   log.log(
                       configs.getServer().isEnsureOutputsPresent() ? Level.WARNING : Level.FINER,
                       worker + " did not contain " + DigestUtil.toString(blobDigest));
-                  // ignore this, the worker will update the backplane eventually
+                  // The worker no longer has this blob. Evict the stale
+                  // (cas:<digest>, worker) mapping now instead of trusting the
+                  // worker to update the backplane "eventually" (it does not on a
+                  // runtime cache-loss; the mapping otherwise lingers until
+                  // casExpire = 48h, routing every reader to the wiped worker).
+                  // Mirrors RemoteInputStreamFactory's worker-to-worker path.
+                  try {
+                    backplane.removeBlobLocation(blobDigest, worker);
+                  } catch (IOException removeException) {
+                    log.log(
+                        Level.WARNING,
+                        "failed to remove stale blob location "
+                            + DigestUtil.toString(blobDigest)
+                            + " for worker "
+                            + worker,
+                        removeException);
+                  }
                 } else if (status.getCode() != Code.DEADLINE_EXCEEDED
                     && SHARD_IS_RETRIABLE.test(status)) {
                   // why not, always
