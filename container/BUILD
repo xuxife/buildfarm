@@ -242,11 +242,11 @@ oci_push(
   name = "push-server-image",
   image = "buildfarm-server",
   repository = "aksdevinfraprodmsftprod.azurecr.io/bazelbuild/buildfarm-server",
-  remote_tags = ["2.15.0.20260514.0"],
+  remote_tags = ["2.15.0.20260617.0"],
 )
 oci_push(
   name = "push-worker-image",
   image = "buildfarm-worker",
   repository = "aksdevinfraprodmsftprod.azurecr.io/bazelbuild/buildfarm-worker",
-  remote_tags = ["2.15.0.20260514.0"],
+  remote_tags = ["2.15.0.20260617.0"],
 )
